@@ -23,6 +23,7 @@ var (
 	DB                        *gorm.DB
 	ErrBookNotFound           = errors.New("图书不存在")
 	ErrNoStock                = errors.New("图书库存不足")
+	ErrOutOfStock             = errors.New("图书库存溢出")
 	ErrBorrowedRecordNotFound = errors.New("借书记录查询失败")
 	ErrBookBorrowed           = errors.New("图书在借")
 	ErrDeleteBook             = errors.New("图书删除失败")

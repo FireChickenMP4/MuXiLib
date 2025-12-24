@@ -8,10 +8,12 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // @Summary		用户注册
@@ -654,5 +656,188 @@ func UpdateBook(c *gin.Context) {
 		Code:    http.StatusOK, //200
 		Message: "书籍更新成功",
 		Data:    book,
+	})
+}
+
+// @Summary 借阅图书
+// @Description 创建借阅记录 (return_at 初始为 空)
+// @Tags borrows
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param request body models.FindBookRequest true "借阅请求"
+// @Success 200 {object} models.Response{data=models.BorrowRecord} "借阅成功"
+// @Failure 400 {object} models.Response "参数错误"
+// @Failure 404 {object} models.Response "图书不存在"
+// @Failure 409 {object} models.Response "库存不足"
+// @Failure 500 {object} models.Response "数据库错误"
+// @Router /api/borrows [post]
+func BorrowBook(c *gin.Context) {
+	var req models.FindBookRequest
+	userID := c.GetUint("user_id")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{
+			Code:    http.StatusBadRequest, //400
+			Message: "请求参数错误",
+		})
+		return
+	}
+
+	var borrowRecord models.BorrowRecord
+	err := config.DB.Transaction(func(tx *gorm.DB) error {
+		var book models.Book
+
+		//clauses是让你下次执行数据库操作的时候，附加一些特定的SQL语法，比如这句是锁定
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&book, req.ID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return config.ErrBookNotFound
+			} else {
+				return err
+			}
+		}
+
+		if book.Stock <= 0 {
+			return config.ErrNoStock
+		}
+		if err := tx.Model(&book).Update("stock", book.Stock-1).Error; err != nil {
+			return err
+		}
+		borrowRecord = models.BorrowRecord{
+			UserID:   userID,
+			BookID:   book.ID,
+			BorrowAt: time.Now(),
+			ReturnAt: nil,
+			Status:   "borrowed",
+		}
+
+		if err := tx.Create(&borrowRecord).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, config.ErrBookNotFound) {
+			c.JSON(http.StatusNotFound, models.Response{
+				Code:    http.StatusNotFound, //404
+				Message: "图书不存在",
+			})
+			return
+		}
+		if errors.Is(err, config.ErrNoStock) {
+			c.JSON(http.StatusConflict, models.Response{
+				Code:    http.StatusConflict, //409
+				Message: "馆内无库存",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Code:    http.StatusInternalServerError, //500
+			Message: "数据库错误：" + err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, models.Response{
+		Code:    http.StatusOK, //200
+		Message: "借书成功",
+		Data:    borrowRecord,
+	})
+}
+
+// @Summary 归还图书
+// @Description 更新借阅状态 主要是(return_at 改为非空)
+// @Tags borrows
+// @Security ApiKeyAuth
+// @Accept json
+// @Produce json
+// @Param request body models.FindBookRequest true "归还请求"
+// @Success 200 {object} models.Response{data=models.BorrowRecord} "归还成功"
+// @Failure 400 {object} models.Response "参数错误"
+// @Failure 404 {object} models.Response "借阅记录不存在"
+// @Failure 409 {object} models.Response "馆内库存溢出"
+// @Failure 500 {object} models.Response "数据库错误"
+func ReturnBook(c *gin.Context) {
+	//基本框架其实跟借书差不多
+	var req models.FindBookRequest
+	userID := c.GetUint("user_id")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Response{
+			Code:    http.StatusBadRequest, //400
+			Message: "请求参数错误",
+		})
+		return
+	}
+
+	var borrowRecord models.BorrowRecord
+	err := config.DB.Transaction(func(tx *gorm.DB) error {
+		//提一嘴，Transaction好在gorm会帮你自动处理事务回滚的事情
+		//所以一定要返回错误，返回的错误非nil都会自动回滚
+		//panic的时候也会自动帮你回滚
+		//所以刚才updatebook相当于手动写了一下这个逻辑
+		var book models.Book
+
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&book, req.ID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return config.ErrBookNotFound
+			} else {
+				return err
+			}
+		}
+
+		if book.TotalStock <= book.Stock {
+			return config.ErrOutOfStock
+			//emmm虽然我想不到这个事件怎么可能发生
+			//但是确实是要处理的可能的异常情况
+		}
+		if err := tx.Model(&book).Update("stock", book.Stock+1).Error; err != nil {
+			return err
+		}
+
+		//然后这里与借书不一样的地方，我们要查找对应的借书记录
+		if err := tx.Where("user_id = ? AND book_id = ? AND status = ?", userID, req.ID, "borrowed").First(&borrowRecord).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return config.ErrBorrowedRecordNotFound
+			} else {
+				return err
+			}
+		}
+
+		now := time.Now()
+		if err := tx.Model(&borrowRecord).Updates(models.BorrowRecord{
+			ReturnAt: &now,
+			Status:   "returned",
+		}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, config.ErrBorrowedRecordNotFound) {
+			c.JSON(http.StatusNotFound, models.Response{
+				Code:    http.StatusNotFound, //404
+				Message: "借阅记录不存在",
+			})
+			return
+		}
+		if errors.Is(err, config.ErrOutOfStock) {
+			c.JSON(http.StatusConflict, models.Response{
+				Code:    http.StatusConflict, //409
+				Message: "馆内库存溢出",
+			})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, models.Response{
+			Code:    http.StatusInternalServerError, //500
+			Message: "数据库错误：" + err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, models.Response{
+		Code:    http.StatusOK, //200
+		Message: "还书成功",
+		Data:    borrowRecord,
 	})
 }
