@@ -39,6 +39,7 @@ func getEnv(key, def string) string {
 }
 
 func ConnectDB() {
+	log.Println("开始连接数据库...")
 	dbUser := getEnv("DB_USER", "adminuser")
 	dbPassword := getEnv("DB_PASSWORD", "")
 	//我自己设置环境变量

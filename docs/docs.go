@@ -9,7 +9,15 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms",
+        "contact": {
+            "name": "FireChickenMP4",
+            "email": "13930176445@163.com"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
@@ -43,7 +51,19 @@ const docTemplate = `{
                     "200": {
                         "description": "登录成功",
                         "schema": {
-                            "$ref": "#/definitions/models.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.LoginData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -95,7 +115,19 @@ const docTemplate = `{
                     "200": {
                         "description": "注册成功",
                         "schema": {
-                            "$ref": "#/definitions/models.Response"
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.RegisterData"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     },
                     "400": {
@@ -119,11 +151,492 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/books": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "按条件分页查询图书(顺序书名作者和简介)。 注意：\n1.默认每条最多30字。（主要是针对于简介）\n2.不能单独使用通配符（%和_，简单理解为mysql的正则表达式就ok），否则清空搜索。\n3.如果有%和_的查询会转义。\n4.实际效果如果三个参数都传，是返回符合这三个效果\n5.按更新时间倒序（最近修改的书在前）\n6.如果查询结果为空，返回状态码也是200，但是data为空",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "获取图书列表",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "按书名模糊查询",
+                        "name": "title",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "按作者模糊查询",
+                        "name": "author",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "按简介模糊查询",
+                        "name": "summary",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "查询成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.Book"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "数据库查询失败",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "添加新图书(需要管理员权限)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "创建图书",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "书名",
+                        "name": "title",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "作者",
+                        "name": "author",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "简介",
+                        "name": "summary",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "封面图片",
+                        "name": "cover",
+                        "in": "formData"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "初始库存",
+                        "name": "initial_stock",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "创建成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Book"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "图书已存在",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/books/{book_id}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过book_id修改图书信息（管理员权限）",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "更新图书",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "图书ID",
+                        "name": "book_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "新书名",
+                        "name": "title",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "新作者",
+                        "name": "author",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "新简介",
+                        "name": "summary",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "新封面",
+                        "name": "cover",
+                        "in": "formData"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "当前库存",
+                        "name": "stock",
+                        "in": "formData"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "总库存",
+                        "name": "total_stock",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "更新成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Book"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "图书不存在",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "通过book_id删除图书(需要管理员权限)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "books"
+                ],
+                "summary": "删除图书",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "图书ID",
+                        "name": "book_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "删除成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Book"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "图书不存在",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "图书借阅中",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "服务器错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/borrows": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "创建借阅记录 (return_at 初始为 空)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "borrows"
+                ],
+                "summary": "借阅图书",
+                "parameters": [
+                    {
+                        "description": "借阅请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.FindBookRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "借阅成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.BorrowRecord"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "图书不存在",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "库存不足",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "数据库错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/borrows/return": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "更新借阅状态 主要是(return_at 改为非空)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "borrows"
+                ],
+                "summary": "归还图书",
+                "parameters": [
+                    {
+                        "description": "归还请求",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.FindBookRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "归还成功",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.BorrowRecord"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "借阅记录不存在",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "馆内库存溢出",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "数据库错误",
+                        "schema": {
+                            "$ref": "#/definitions/models.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/logout": {
             "post": {
                 "security": [
                     {
-                        "ApikeyAuth": []
+                        "ApiKeyAuth": []
                     }
                 ],
                 "description": "用户登出",
@@ -149,344 +662,122 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/api/v1/articles": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "获取多个文章",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "文章名称",
-                        "name": "name",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "标签ID",
-                        "name": "tag_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "状态",
-                        "name": "state",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "页码",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "每页数量",
-                        "name": "page_size",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "$ref": "#/definitions/main.Article"
-                        }
-                    },
-                    "400": {
-                        "description": "请求错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "内部错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "创建文章",
-                "parameters": [
-                    {
-                        "description": "标签ID",
-                        "name": "tag_id",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "文章标题",
-                        "name": "title",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "文章简述",
-                        "name": "desc",
-                        "in": "body",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "封面图片地址",
-                        "name": "cover_image_url",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "文章内容",
-                        "name": "content",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "创建者",
-                        "name": "created_by",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "description": "状态",
-                        "name": "state",
-                        "in": "body",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "$ref": "#/definitions/main.Article"
-                        }
-                    },
-                    "400": {
-                        "description": "请求错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "内部错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/v1/articles/{id}": {
-            "get": {
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "获取单个文章",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "文章ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "$ref": "#/definitions/main.Article"
-                        }
-                    },
-                    "400": {
-                        "description": "请求错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "内部错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "更新文章",
-                "parameters": [
-                    {
-                        "description": "标签ID",
-                        "name": "tag_id",
-                        "in": "body",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "文章标题",
-                        "name": "title",
-                        "in": "body",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "文章简述",
-                        "name": "desc",
-                        "in": "body",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "封面图片地址",
-                        "name": "cover_image_url",
-                        "in": "body",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "文章内容",
-                        "name": "content",
-                        "in": "body",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "修改者",
-                        "name": "modified_by",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "$ref": "#/definitions/main.Article"
-                        }
-                    },
-                    "400": {
-                        "description": "请求错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "内部错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "删除文章",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "文章ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "成功",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "请求错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "内部错误",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
-        "main.Article": {
+        "models.Book": {
+            "description": "书籍信息",
             "type": "object",
             "properties": {
-                "content": {
+                "author": {
+                    "description": "作者",
                     "type": "string"
                 },
-                "cover_image_url": {
+                "book_id": {
+                    "description": "图书ID minimum(1)",
+                    "type": "integer"
+                },
+                "cover_path": {
+                    "description": "封面路径",
                     "type": "string"
                 },
-                "created_by": {
+                "created_at": {
+                    "description": "创建时间 (RFC3339)",
                     "type": "string"
                 },
-                "created_on": {
-                    "type": "integer"
+                "initial_stock": {
+                    "description": "初始库存",
+                    "type": "integer",
+                    "minimum": 0
                 },
-                "deleted_on": {
-                    "type": "integer"
+                "stock": {
+                    "description": "现有库存",
+                    "type": "integer",
+                    "minimum": 0
                 },
-                "desc": {
+                "summary": {
+                    "description": "简介",
                     "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "is_del": {
-                    "type": "integer"
-                },
-                "modified_by": {
-                    "type": "string"
-                },
-                "modified_on": {
-                    "type": "integer"
-                },
-                "state": {
-                    "type": "integer"
                 },
                 "title": {
+                    "description": "书名",
+                    "type": "string"
+                },
+                "total_stock": {
+                    "description": "总库存",
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "updated_at": {
+                    "description": "更新时间 (RFC3339)",
+                    "type": "string"
+                }
+            }
+        },
+        "models.BorrowRecord": {
+            "description": "借阅记录",
+            "type": "object",
+            "properties": {
+                "book_id": {
+                    "description": "图书ID minimum(1)",
+                    "type": "integer"
+                },
+                "borrow_at": {
+                    "description": "借书时间 (RFC3339)",
+                    "type": "string"
+                },
+                "created_at": {
+                    "description": "创建时间 (RFC3339)",
+                    "type": "string"
+                },
+                "deleted_at": {
+                    "description": "删除时间 (RFC3339)",
+                    "type": "string"
+                },
+                "record_id": {
+                    "description": "记录ID minimum(1)",
+                    "type": "integer"
+                },
+                "return_at": {
+                    "description": "归还时间 (RFC3339)",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "borrowed or returned",
+                    "type": "string"
+                },
+                "updated_at": {
+                    "description": "更新时间 (RFC3339)",
+                    "type": "string"
+                },
+                "user_id": {
+                    "description": "用户ID minimum(1)",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.FindBookRequest": {
+            "description": "包含图书ID的请求",
+            "type": "object",
+            "required": [
+                "book_id"
+            ],
+            "properties": {
+                "book_id": {
+                    "description": "图书ID minimum(1)",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.LoginData": {
+            "description": "登录返回Data结构体",
+            "type": "object",
+            "properties": {
+                "user_group": {
+                    "description": "user or admin",
+                    "type": "integer"
+                },
+                "username": {
                     "type": "string"
                 }
             }
@@ -494,6 +785,10 @@ const docTemplate = `{
         "models.LoginRequest": {
             "description": "登录信息",
             "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
             "properties": {
                 "password": {
                     "type": "string"
@@ -503,9 +798,26 @@ const docTemplate = `{
                 }
             }
         },
+        "models.RegisterData": {
+            "description": "注册返回Data结构体",
+            "type": "object",
+            "properties": {
+                "user_id": {
+                    "description": "用户ID minimum(1)",
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
         "models.RegisterRequest": {
             "description": "注册信息",
             "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
             "properties": {
                 "password": {
                     "type": "string",
@@ -524,25 +836,36 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "code": {
+                    "description": "http状态码",
                     "type": "integer"
                 },
-                "data": {},
+                "data": {
+                    "description": "根据具体数据来定类型"
+                },
                 "message": {
+                    "description": "返回的消息",
                     "type": "string"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
+	Version:          "1.0",
+	Host:             "localhost:8080",
+	BasePath:         "/api",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "MuXi Library Management System",
+	Description:      "MuXi Library Management System\n主要功能：用户登录注册（存在user和admin权限组），对图书的CRUD，可以借书和还书等等\n其中增删改书籍权限仅限管理员账户，其他功能普通用户可用\n注意:请设置环境变量DB_PASSWORD为你数据库adminuser（默认为adminuser）的密码",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	// LeftDelim:        "{{",

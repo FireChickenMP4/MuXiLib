@@ -17,9 +17,8 @@ type LoginRequest struct {
 }
 
 // @summary		创建图书请求
-// @description	创建图书所需参数
+// @description	创建图书所需参数,由于包含封面图片文件，所以用form
 type CreateBookRequest struct {
-	//由于包含封面图片文件，所以用form
 	Title        string                `form:"title" binding:"required"`
 	Author       string                `form:"author" binding:"required"`
 	Summary      string                `form:"summary" binding:"omitempty"`
@@ -27,14 +26,15 @@ type CreateBookRequest struct {
 	InitialStock int                   `form:"initial_stock" binding:"gte=0"`
 }
 
-// @summary 图书查询请求(ID)
-// @description 包含图书ID的请求
+// @summary		图书查询请求(ID)
+// @description	包含图书ID的请求
 type FindBookRequest struct {
+	//图书ID minimum(1)
 	ID uint `json:"book_id" binding:"required"`
 }
 
-// @summary 更新图书请求
-// @description 更新图书请求所需参数
+// @summary		更新图书请求
+// @description	更新图书请求所需参数
 type UpdateBookRequest struct {
 	ID         uint                  `form:"book_id"`
 	Title      string                `form:"title" binding:"omitempty"`

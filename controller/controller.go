@@ -21,11 +21,11 @@ import (
 // @Tags			auth
 // @Accept			json
 // @Produce		json
-// @Param			request	body		models.RegisterRequest	true	"注册请求"
-// @Success		200		{object}	models.Response			"注册成功"
-// @Failure		400		{object}	models.Response			"请求参数错误"
-// @Failure		409		{object}	models.Response			"用户已存在"
-// @Failure		500		{object}	models.Response			"服务器错误"
+// @Param			request	body		models.RegisterRequest						true	"注册请求"
+// @Success		200		{object}	models.Response{data=models.RegisterData}	"注册成功"
+// @Failure		400		{object}	models.Response								"请求参数错误"
+// @Failure		409		{object}	models.Response								"用户已存在"
+// @Failure		500		{object}	models.Response								"服务器错误"
 // @Router			/api/auth/register [post]
 func Register(c *gin.Context) {
 	var req models.RegisterRequest
@@ -97,11 +97,11 @@ func Register(c *gin.Context) {
 // @Tags			auth
 // @Accept			json
 // @Produce		json
-// @Param			request	body		models.LoginRequest	true	"注册请求"
-// @Success		200		{object}	models.Response		"登录成功"
-// @Failure		400		{object}	models.Response		"请求参数错误"
-// @Failure		403		{object}	models.Response		"认证失败"
-// @Failure		500		{object}	models.Response		"服务器错误"
+// @Param			request	body		models.LoginRequest						true	"注册请求"
+// @Success		200		{object}	models.Response{data=models.LoginData}	"登录成功"
+// @Failure		400		{object}	models.Response							"请求参数错误"
+// @Failure		403		{object}	models.Response							"认证失败"
+// @Failure		500		{object}	models.Response							"服务器错误"
 // @Router			/api/auth/login [post]
 func Login(c *gin.Context) {
 	var req models.LoginRequest
@@ -166,7 +166,7 @@ func Login(c *gin.Context) {
 // @Summary		用户登出
 // @Description	用户登出
 // @Tags			auth
-// @Security		ApikeyAuth
+// @Security		ApiKeyAuth
 // @Produce		json
 // @Success		200	{object}	models.Response	"登出成功"
 // @Failure		500	{object}	models.Response	"服务器错误"
@@ -193,18 +193,18 @@ func Logout(c *gin.Context) {
 // @Summary		创建图书
 // @Description	添加新图书(需要管理员权限)
 // @Tags			books
-// @Security		ApikeyAuth
+// @Security		ApiKeyAuth
 // @Accept			multipart/form-data
 // @Produce		json
-// @Param title formData string ture "书名"
-// @Param author formData string ture "作者"
-// @Param summary formData string false "简介"
-// @Param cover formData file false "封面图片"
-// @Param initial_stock formData integer true "初始库存" minimum(0)
-// @Success		200		{object}	models.Response{data=models.Book}		"创建成功"
-// @Failure		400		{object}	models.Response		"请求参数错误"
-// @Failure		409		{object}	models.Response		"图书已存在"
-// @Failure		500		{object}	models.Response		"服务器错误"
+// @Param			title			formData	string								true	"书名"
+// @Param			author			formData	string								true	"作者"
+// @Param			summary			formData	string								false	"简介"
+// @Param			cover			formData	file								false	"封面图片"
+// @Param			initial_stock	formData	integer								true	"初始库存"	minimum(0)
+// @Success		200				{object}	models.Response{data=models.Book}	"创建成功"
+// @Failure		400				{object}	models.Response						"请求参数错误"
+// @Failure		409				{object}	models.Response						"图书已存在"
+// @Failure		500				{object}	models.Response						"服务器错误"
 // @Router			/api/books [post]
 func CreateBook(c *gin.Context) {
 	var req models.CreateBookRequest
@@ -293,17 +293,17 @@ func CreateBook(c *gin.Context) {
 // @Summary		删除图书
 // @Description	通过book_id删除图书(需要管理员权限)
 // @Tags			books
-// @Security		ApikeyAuth
+// @Security		ApiKeyAuth
 // @Produce		json
-// @Param book_id path uint ture "图书ID"
-// @Success		200		{object}	models.Response{data=models.Book}		"删除成功"
-// @Failure		400		{object}	models.Response		"请求参数错误"
-// @Failure		404		{object}	models.Response		"图书不存在"
-// @Failure		409		{object}	models.Response		"图书借阅中"
-// @Failure		500		{object}	models.Response		"服务器错误"
-// @Router			/api/books/{id} [delete]
+// @Param			book_id	path		uint								true	"图书ID"
+// @Success		200		{object}	models.Response{data=models.Book}	"删除成功"
+// @Failure		400		{object}	models.Response						"请求参数错误"
+// @Failure		404		{object}	models.Response						"图书不存在"
+// @Failure		409		{object}	models.Response						"图书借阅中"
+// @Failure		500		{object}	models.Response						"服务器错误"
+// @Router			/api/books/{book_id} [delete]
 func DeletedBook(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param("book_id")
 	bookID, err := strconv.ParseUint(id, 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, models.Response{
@@ -383,23 +383,23 @@ func DeletedBook(c *gin.Context) {
 	})
 }
 
-// @Summary 获取图书列表
-// @Description 按条件分页查询图书(顺序书名作者和简介)。 注意：
-// @Description 1.默认每条最多30字。（主要是针对于简介）
-// @Description 2.不能单独使用通配符（%和_，简单理解为mysql的正则表达式就ok），否则清空搜索。
-// @Description 3.如果有%和_的查询会转义。
-// @Description 4.实际效果如果三个参数都传，是返回符合这三个效果
-// @Description 5.按更新时间倒序（最近修改的书在前）
-// @Description 6.如果查询结果为空，返回状态码也是200，但是data为空
-// @Tags books
-// @Security ApiKeyAuth
-// @Produce json
-// @Param title query string false "按书名模糊查询"
-// @Param author query string false "按作者模糊查询"
-// @Param summary query string false "按简介模糊查询"
-// @Success 200 {object} models.Response{data=[]models.Book} "查询成功"
-// @Failure 500 {object} models.Response "数据库查询失败"
-// @Router /api/books [get]
+// @Summary		获取图书列表
+// @Description	按条件分页查询图书(顺序书名作者和简介)。 注意：
+// @Description	1.默认每条最多30字。（主要是针对于简介）
+// @Description	2.不能单独使用通配符（%和_，简单理解为mysql的正则表达式就ok），否则清空搜索。
+// @Description	3.如果有%和_的查询会转义。
+// @Description	4.实际效果如果三个参数都传，是返回符合这三个效果
+// @Description	5.按更新时间倒序（最近修改的书在前）
+// @Description	6.如果查询结果为空，返回状态码也是200，但是data为空
+// @Tags			books
+// @Security		ApiKeyAuth
+// @Produce		json
+// @Param			title	query		string								false	"按书名模糊查询"
+// @Param			author	query		string								false	"按作者模糊查询"
+// @Param			summary	query		string								false	"按简介模糊查询"
+// @Success		200		{object}	models.Response{data=[]models.Book}	"查询成功"
+// @Failure		500		{object}	models.Response						"数据库查询失败"
+// @Router			/api/books [get]
 func GetBooks(c *gin.Context) {
 	//搜索的话用mysql自带的模糊搜索就ok了
 	var books []models.Book
@@ -460,24 +460,24 @@ func GetBooks(c *gin.Context) {
 	})
 }
 
-// @Summary 更新图书
-// @Description 通过book_id修改图书信息（管理员权限）
-// @Tags books
-// @Security ApiKeyAuth
-// @Accept multipart/form-data
-// @Produce json
-// @Param book_id path uint true "图书ID"
-// @Param title formData string false "新书名"
-// @Param author formData string false "新作者"
-// @Param summary formData string false "新简介"
-// @Param cover formData file false "新封面"
-// @Param stock formData integer false "当前库存" minimum(0)
-// @Param total_stock formData integer false "总库存" minimum(0)
-// @Success 200 {object} models.Response{data=models.Book} "更新成功"
-// @Failure 400 {object} models.Response "参数错误"
-// @Failure 404 {object} models.Response "图书不存在"
-// @Failure 500 {object} models.Response "服务器错误"
-// @Router /api/books/{id} [put]
+// @Summary		更新图书
+// @Description	通过book_id修改图书信息（管理员权限）
+// @Tags			books
+// @Security		ApiKeyAuth
+// @Accept			multipart/form-data
+// @Produce		json
+// @Param			book_id		path		uint								true	"图书ID"
+// @Param			title		formData	string								false	"新书名"
+// @Param			author		formData	string								false	"新作者"
+// @Param			summary		formData	string								false	"新简介"
+// @Param			cover		formData	file								false	"新封面"
+// @Param			stock		formData	integer								false	"当前库存"	minimum(0)
+// @Param			total_stock	formData	integer								false	"总库存"	minimum(0)
+// @Success		200			{object}	models.Response{data=models.Book}	"更新成功"
+// @Failure		400			{object}	models.Response						"参数错误"
+// @Failure		404			{object}	models.Response						"图书不存在"
+// @Failure		500			{object}	models.Response						"服务器错误"
+// @Router			/api/books/{book_id} [put]
 func UpdateBook(c *gin.Context) {
 	id := c.Param("book_id")
 	bookID, err := strconv.ParseUint(id, 10, 32)
@@ -659,19 +659,19 @@ func UpdateBook(c *gin.Context) {
 	})
 }
 
-// @Summary 借阅图书
-// @Description 创建借阅记录 (return_at 初始为 空)
-// @Tags borrows
-// @Security ApiKeyAuth
-// @Accept json
-// @Produce json
-// @Param request body models.FindBookRequest true "借阅请求"
-// @Success 200 {object} models.Response{data=models.BorrowRecord} "借阅成功"
-// @Failure 400 {object} models.Response "参数错误"
-// @Failure 404 {object} models.Response "图书不存在"
-// @Failure 409 {object} models.Response "库存不足"
-// @Failure 500 {object} models.Response "数据库错误"
-// @Router /api/borrows [post]
+// @Summary		借阅图书
+// @Description	创建借阅记录 (return_at 初始为 空)
+// @Tags			borrows
+// @Security		ApiKeyAuth
+// @Accept			json
+// @Produce		json
+// @Param			request	body		models.FindBookRequest						true	"借阅请求"
+// @Success		200		{object}	models.Response{data=models.BorrowRecord}	"借阅成功"
+// @Failure		400		{object}	models.Response								"参数错误"
+// @Failure		404		{object}	models.Response								"图书不存在"
+// @Failure		409		{object}	models.Response								"库存不足"
+// @Failure		500		{object}	models.Response								"数据库错误"
+// @Router			/api/borrows [post]
 func BorrowBook(c *gin.Context) {
 	var req models.FindBookRequest
 	userID := c.GetUint("user_id")
@@ -745,18 +745,19 @@ func BorrowBook(c *gin.Context) {
 	})
 }
 
-// @Summary 归还图书
-// @Description 更新借阅状态 主要是(return_at 改为非空)
-// @Tags borrows
-// @Security ApiKeyAuth
-// @Accept json
-// @Produce json
-// @Param request body models.FindBookRequest true "归还请求"
-// @Success 200 {object} models.Response{data=models.BorrowRecord} "归还成功"
-// @Failure 400 {object} models.Response "参数错误"
-// @Failure 404 {object} models.Response "借阅记录不存在"
-// @Failure 409 {object} models.Response "馆内库存溢出"
-// @Failure 500 {object} models.Response "数据库错误"
+// @Summary		归还图书
+// @Description	更新借阅状态 主要是(return_at 改为非空)
+// @Tags			borrows
+// @Security		ApiKeyAuth
+// @Accept			json
+// @Produce		json
+// @Param			request	body		models.FindBookRequest						true	"归还请求"
+// @Success		200		{object}	models.Response{data=models.BorrowRecord}	"归还成功"
+// @Failure		400		{object}	models.Response								"参数错误"
+// @Failure		404		{object}	models.Response								"借阅记录不存在"
+// @Failure		409		{object}	models.Response								"馆内库存溢出"
+// @Failure		500		{object}	models.Response								"数据库错误"
+// @Router			/api/borrows/return [post]
 func ReturnBook(c *gin.Context) {
 	//基本框架其实跟借书差不多
 	var req models.FindBookRequest
