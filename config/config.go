@@ -39,7 +39,11 @@ func ConnectDB() {
 	if len(dbPassword) == 0 {
 		log.Fatal("数据库管理用户密码环境变量(DB_PASSWORD)为空,请配置")
 	}
-	dbHost := utils.GetEnv("DB_HOST", "47.105.123.226")
+	dbHost := utils.GetEnv("DB_HOST", "")
+	if dbHost == "" {
+		log.Fatal("DB_HOST为空，请设置环境变量")
+		return
+	}
 	dbPort := utils.GetEnv("DB_PORT", "3306")
 	dbName := utils.GetEnv("DB_NAME", "Lib")
 	dsnRoot := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=true&loc=Local",
@@ -58,6 +62,7 @@ func ConnectDB() {
 
 	if err != nil {
 		log.Fatal("连接MySQL失败:", err)
+		return
 	}
 	createDb := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4;", dbName)
 	err = DB.Exec(createDb).Error
